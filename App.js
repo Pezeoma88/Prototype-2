@@ -15,7 +15,7 @@ import {
 // and a waiting rider can be matched to a driver's open seat.
 export default function App() {
   // The list of drivers that have been added so far.
-  // Each driver is an object like { id, name, seats }.
+  // Each driver is an object like { id, name, destination, departureTime, seats }.
   const [drivers, setDrivers] = useState([]);
 
   // Whether the "Add Driver" form is currently showing.
@@ -23,6 +23,8 @@ export default function App() {
 
   // The current text typed into the form's inputs.
   const [nameInput, setNameInput] = useState('');
+  const [destinationInput, setDestinationInput] = useState('');
+  const [departureTimeInput, setDepartureTimeInput] = useState('');
   const [seatsInput, setSeatsInput] = useState('');
 
   // A validation message to show under the form, if something is wrong.
@@ -53,6 +55,8 @@ export default function App() {
   function resetForm() {
     setIsAddingDriver(false);
     setNameInput('');
+    setDestinationInput('');
+    setDepartureTimeInput('');
     setSeatsInput('');
     setFormError('');
   }
@@ -60,11 +64,22 @@ export default function App() {
   // Runs when the user presses "Save Driver".
   function handleSaveDriver() {
     const trimmedName = nameInput.trim();
+    const trimmedDestination = destinationInput.trim();
+    const trimmedDepartureTime = departureTimeInput.trim();
     const seatsNumber = Number(seatsInput.trim());
 
-    // Validation: the name can't be empty, and seats must be a whole number of 1 or more.
+    // Validation: name, destination, and departure time can't be empty,
+    // and seats must be a whole number of 1 or more.
     if (trimmedName === '') {
       setFormError('Please enter a name.');
+      return;
+    }
+    if (trimmedDestination === '') {
+      setFormError('Please enter a destination.');
+      return;
+    }
+    if (trimmedDepartureTime === '') {
+      setFormError('Please enter a departure time.');
       return;
     }
     if (!Number.isInteger(seatsNumber) || seatsNumber < 1) {
@@ -76,6 +91,8 @@ export default function App() {
     const newDriver = {
       id: Date.now(),
       name: trimmedName,
+      destination: trimmedDestination,
+      departureTime: trimmedDepartureTime,
       seats: seatsNumber,
     };
     setDrivers([...drivers, newDriver]);
@@ -223,7 +240,17 @@ export default function App() {
                   </View>
 
                   <Text style={styles.rideCardName}>{driver.name}</Text>
-                  <Text style={styles.rideCardMeta}>Campus carpool driver</Text>
+
+                  <View style={styles.rideCardRouteRow}>
+                    <Text style={styles.rideCardRouteIcon}>→</Text>
+                    <Text style={styles.rideCardDestination} numberOfLines={1}>
+                      {driver.destination}
+                    </Text>
+                  </View>
+
+                  <View style={styles.rideCardTimeBadge}>
+                    <Text style={styles.rideCardTimeText}>Departs {driver.departureTime}</Text>
+                  </View>
 
                   <TouchableOpacity
                     style={[
@@ -351,6 +378,22 @@ export default function App() {
               placeholderTextColor="#9AA3B2"
               value={nameInput}
               onChangeText={setNameInput}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Destination"
+              placeholderTextColor="#9AA3B2"
+              value={destinationInput}
+              onChangeText={setDestinationInput}
+            />
+
+            <TextInput
+              style={styles.input}
+              placeholder="Departure time (e.g. 5:30 PM)"
+              placeholderTextColor="#9AA3B2"
+              value={departureTimeInput}
+              onChangeText={setDepartureTimeInput}
             />
 
             <TextInput
@@ -585,11 +628,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1A2333',
   },
-  rideCardMeta: {
-    fontSize: 12.5,
-    color: '#8A93A3',
-    marginTop: 2,
+  rideCardRouteRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  rideCardRouteIcon: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#3B6EF5',
+    marginRight: 5,
+  },
+  rideCardDestination: {
+    flex: 1,
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#3A4256',
+  },
+  rideCardTimeBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#F3F5F8',
+    borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    marginTop: 8,
     marginBottom: 14,
+  },
+  rideCardTimeText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#5B6472',
   },
   rideCardButton: {
     backgroundColor: '#3B6EF5',
