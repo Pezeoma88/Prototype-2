@@ -46,6 +46,10 @@ export default function App() {
   // The id of the driver currently picking a waiting rider to match with, or null if none.
   const [reservingDriverId, setReservingDriverId] = useState(null);
 
+  // Details of the most recently confirmed match, or null when no confirmation is showing.
+  // Shape: { riderName, driverName, destination, departureTime }.
+  const [matchConfirmation, setMatchConfirmation] = useState(null);
+
   // Opens the Add Driver form.
   function handleAddDriver() {
     setIsAddingDriver(true);
@@ -111,9 +115,13 @@ export default function App() {
   }
 
   // Runs when a waiting rider is chosen to fill a driver's open seat.
-  // Decreases that driver's seat count by 1 (never below 0) and removes the
-  // matched rider from the waiting list. This is the Rider Waiting -> Matched step.
+  // Decreases that driver's seat count by 1 (never below 0), removes the
+  // matched rider from the waiting list, and shows a Match Confirmed screen.
+  // This is the Rider Waiting -> Matched step.
   function handleMatchRider(driverId, riderId) {
+    const matchedDriver = drivers.find((driver) => driver.id === driverId);
+    const matchedRider = riders.find((rider) => rider.id === riderId);
+
     setDrivers(
       drivers.map((driver) =>
         driver.id === driverId
@@ -123,6 +131,20 @@ export default function App() {
     );
     setRiders(riders.filter((rider) => rider.id !== riderId));
     setReservingDriverId(null);
+
+    if (matchedDriver && matchedRider) {
+      setMatchConfirmation({
+        riderName: matchedRider.name,
+        driverName: matchedDriver.name,
+        destination: matchedDriver.destination,
+        departureTime: matchedDriver.departureTime,
+      });
+    }
+  }
+
+  // Dismisses the Match Confirmed screen and returns to the normal home view.
+  function handleDismissMatchConfirmation() {
+    setMatchConfirmation(null);
   }
 
   // Opens the Need a Ride form.
@@ -195,6 +217,61 @@ export default function App() {
       </View>
 
       <ScrollView style={styles.scrollArea} contentContainerStyle={styles.container}>
+        {matchConfirmation ? (
+          /* Match Confirmed screen: shown after a rider is matched to a driver */
+          <View style={styles.confirmationWrap}>
+            <View style={styles.confirmationCard}>
+              <View style={styles.confirmationIconCircle}>
+                <Text style={styles.confirmationIcon}>✓</Text>
+              </View>
+
+              <Text style={styles.confirmationTitle}>Ride Matched!</Text>
+              <Text style={styles.confirmationSubtitle}>
+                {matchConfirmation.riderName} has been matched with {matchConfirmation.driverName}
+                &apos;s ride.
+              </Text>
+
+              <View style={styles.confirmationDetailsBox}>
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Rider</Text>
+                  <Text style={styles.confirmationDetailValue}>
+                    {matchConfirmation.riderName}
+                  </Text>
+                </View>
+                <View style={styles.confirmationDetailDivider} />
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Driver</Text>
+                  <Text style={styles.confirmationDetailValue}>
+                    {matchConfirmation.driverName}
+                  </Text>
+                </View>
+                <View style={styles.confirmationDetailDivider} />
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Destination</Text>
+                  <Text style={styles.confirmationDetailValue}>
+                    {matchConfirmation.destination}
+                  </Text>
+                </View>
+                <View style={styles.confirmationDetailDivider} />
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Departs</Text>
+                  <Text style={styles.confirmationDetailValue}>
+                    {matchConfirmation.departureTime}
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.saveDriverButton, styles.confirmationDoneButton]}
+                onPress={handleDismissMatchConfirmation}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.buttonText}>Back to Rides</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : (
+        <>
         {/* Available Rides section (drivers) */}
         <View style={styles.sectionHeaderRow}>
           <View style={[styles.sectionAccent, styles.sectionAccentDriver]} />
@@ -462,6 +539,8 @@ export default function App() {
             </TouchableOpacity>
           </View>
         )}
+        </>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -553,6 +632,86 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 22,
     paddingBottom: 32,
+  },
+
+  // Match Confirmed screen
+  confirmationWrap: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 24,
+  },
+  confirmationCard: {
+    width: '100%',
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EEF1F6',
+    shadowColor: '#16213E',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  confirmationIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: '#3B6EF5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 14,
+  },
+  confirmationIcon: {
+    fontSize: 26,
+    fontWeight: '800',
+    color: '#fff',
+  },
+  confirmationTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#16213E',
+    marginBottom: 6,
+  },
+  confirmationSubtitle: {
+    fontSize: 13.5,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  confirmationDetailsBox: {
+    width: '100%',
+    backgroundColor: '#F7F9FC',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    marginBottom: 20,
+  },
+  confirmationDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  confirmationDetailLabel: {
+    fontSize: 13,
+    color: '#8A93A3',
+    fontWeight: '600',
+  },
+  confirmationDetailValue: {
+    fontSize: 14,
+    color: '#1A2333',
+    fontWeight: '700',
+  },
+  confirmationDetailDivider: {
+    height: 1,
+    backgroundColor: '#E8EBF0',
+  },
+  confirmationDoneButton: {
+    alignSelf: 'stretch',
+    marginBottom: 0,
   },
 
   // Section headers (shared by Available Rides / Looking for a Ride / forms)
