@@ -50,6 +50,9 @@ export default function App() {
   // Shape: { riderName, driverName, destination, departureTime }.
   const [matchConfirmation, setMatchConfirmation] = useState(null);
 
+  // The id of the driver whose Ride Details screen is currently open, or null if none.
+  const [selectedRideDriverId, setSelectedRideDriverId] = useState(null);
+
   // Opens the Add Driver form.
   function handleAddDriver() {
     setIsAddingDriver(true);
@@ -104,7 +107,19 @@ export default function App() {
     resetForm();
   }
 
+  // Opens the Ride Details screen for a driver. This is the Available Rides -> Ride Details step.
+  function handleViewRideDetails(driverId) {
+    setSelectedRideDriverId(driverId);
+  }
+
+  // Closes the Ride Details screen (and any in-progress matching) and returns to Available Rides.
+  function handleBackToAvailableRides() {
+    setSelectedRideDriverId(null);
+    setReservingDriverId(null);
+  }
+
   // Opens (or closes, if already open) the waiting-rider picker for a driver.
+  // This is the Ride Details -> Rider Matching step.
   function handleStartReserve(driverId) {
     setReservingDriverId((currentId) => (currentId === driverId ? null : driverId));
   }
@@ -131,6 +146,7 @@ export default function App() {
     );
     setRiders(riders.filter((rider) => rider.id !== riderId));
     setReservingDriverId(null);
+    setSelectedRideDriverId(null);
 
     if (matchedDriver && matchedRider) {
       setMatchConfirmation({
@@ -184,7 +200,7 @@ export default function App() {
     return name.trim().charAt(0).toUpperCase();
   }
 
-  const reservingDriver = drivers.find((driver) => driver.id === reservingDriverId) || null;
+  const detailsDriver = drivers.find((driver) => driver.id === selectedRideDriverId) || null;
   const showActionsRow = !isAddingDriver || !isAddingRider;
 
   return (
@@ -270,6 +286,119 @@ export default function App() {
               </TouchableOpacity>
             </View>
           </View>
+        ) : detailsDriver !== null ? (
+          /* Ride Details screen: shown after selecting a ride from Available Rides */
+          <View style={styles.detailsWrap}>
+            <View style={styles.detailsCard}>
+              <TouchableOpacity
+                style={styles.detailsBackRow}
+                onPress={handleBackToAvailableRides}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.detailsBackArrow}>‹</Text>
+                <Text style={styles.detailsBackText}>Available Rides</Text>
+              </TouchableOpacity>
+
+              <View style={styles.detailsHeaderRow}>
+                <View style={styles.avatarRing}>
+                  <View style={styles.avatar}>
+                    <Text style={styles.avatarText}>{getInitial(detailsDriver.name)}</Text>
+                  </View>
+                </View>
+                <View style={styles.detailsHeaderText}>
+                  <Text style={styles.detailsDriverName}>{detailsDriver.name}</Text>
+                  <Text style={styles.detailsHeaderHint}>Ride Details</Text>
+                </View>
+              </View>
+
+              <View style={styles.confirmationDetailsBox}>
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Destination</Text>
+                  <Text style={styles.confirmationDetailValue}>{detailsDriver.destination}</Text>
+                </View>
+                <View style={styles.confirmationDetailDivider} />
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Departs</Text>
+                  <Text style={styles.confirmationDetailValue}>{detailsDriver.departureTime}</Text>
+                </View>
+                <View style={styles.confirmationDetailDivider} />
+                <View style={styles.confirmationDetailRow}>
+                  <Text style={styles.confirmationDetailLabel}>Available Seats</Text>
+                  <Text style={styles.confirmationDetailValue}>{detailsDriver.seats}</Text>
+                </View>
+              </View>
+
+              {reservingDriverId === detailsDriver.id ? (
+                /* Rider Matching: choose which waiting rider fills the open seat */
+                <View style={styles.reservationPanel}>
+                  <Text style={styles.reservationTitle}>
+                    Match a rider to {detailsDriver.name}&apos;s ride
+                  </Text>
+                  <Text style={styles.reservationSubtitle}>
+                    Tap a waiting rider to confirm the match.
+                  </Text>
+
+                  {riders.length === 0 ? (
+                    <Text style={styles.emptyMessage}>No riders waiting.</Text>
+                  ) : (
+                    riders.map((rider) => (
+                      <TouchableOpacity
+                        key={rider.id}
+                        style={styles.riderPickRow}
+                        onPress={() => handleMatchRider(detailsDriver.id, rider.id)}
+                        activeOpacity={0.75}
+                      >
+                        <View style={[styles.avatar, styles.riderAvatar, styles.riderPickAvatar]}>
+                          <Text style={styles.avatarText}>{getInitial(rider.name)}</Text>
+                        </View>
+                        <Text style={styles.riderPickName}>{rider.name}</Text>
+                        <Text style={styles.riderPickArrow}>›</Text>
+                      </TouchableOpacity>
+                    ))
+                  )}
+
+                  <TouchableOpacity
+                    style={styles.cancelButton}
+                    onPress={handleCancelReserve}
+                    activeOpacity={0.85}
+                  >
+                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                (() => {
+                  let reserveLabel = 'Match Rider';
+                  if (detailsDriver.seats === 0) {
+                    reserveLabel = 'Full';
+                  } else if (riders.length === 0) {
+                    reserveLabel = 'No Riders';
+                  }
+                  const reserveDisabled = detailsDriver.seats === 0 || riders.length === 0;
+
+                  return (
+                    <TouchableOpacity
+                      style={[
+                        styles.saveDriverButton,
+                        reserveDisabled && styles.rideCardButtonDisabled,
+                      ]}
+                      onPress={() => handleStartReserve(detailsDriver.id)}
+                      disabled={reserveDisabled}
+                      activeOpacity={0.85}
+                    >
+                      <Text
+                        style={[
+                          styles.buttonText,
+                          reserveDisabled && styles.rideCardButtonTextDisabled,
+                        ]}
+                      >
+                        {reserveLabel}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })()
+              )}
+            </View>
+          </View>
         ) : (
         <>
         {/* Available Rides section (drivers) */}
@@ -288,108 +417,45 @@ export default function App() {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.rideCarousel}
           >
-            {drivers.map((driver) => {
-              let reserveLabel = 'Match Rider';
-              if (driver.seats === 0) {
-                reserveLabel = 'Full';
-              } else if (riders.length === 0) {
-                reserveLabel = 'No Riders';
-              }
-              const reserveDisabled = driver.seats === 0 || riders.length === 0;
-              const isPickingForThisDriver = reservingDriverId === driver.id;
-
-              return (
-                <View
-                  key={driver.id}
-                  style={[styles.rideCard, isPickingForThisDriver && styles.rideCardActive]}
-                >
-                  <View style={styles.rideCardTop}>
-                    <View style={styles.avatarRing}>
-                      <View style={styles.avatar}>
-                        <Text style={styles.avatarText}>{getInitial(driver.name)}</Text>
-                      </View>
-                    </View>
-                    <View style={styles.seatBadge}>
-                      <Text style={styles.seatBadgeText}>
-                        {driver.seats} seat{driver.seats === 1 ? '' : 's'}
-                      </Text>
+            {drivers.map((driver) => (
+              <TouchableOpacity
+                key={driver.id}
+                style={styles.rideCard}
+                onPress={() => handleViewRideDetails(driver.id)}
+                activeOpacity={0.85}
+              >
+                <View style={styles.rideCardTop}>
+                  <View style={styles.avatarRing}>
+                    <View style={styles.avatar}>
+                      <Text style={styles.avatarText}>{getInitial(driver.name)}</Text>
                     </View>
                   </View>
-
-                  <Text style={styles.rideCardName}>{driver.name}</Text>
-
-                  <View style={styles.rideCardRouteRow}>
-                    <Text style={styles.rideCardRouteIcon}>→</Text>
-                    <Text style={styles.rideCardDestination} numberOfLines={1}>
-                      {driver.destination}
+                  <View style={styles.seatBadge}>
+                    <Text style={styles.seatBadgeText}>
+                      {driver.seats} seat{driver.seats === 1 ? '' : 's'}
                     </Text>
                   </View>
-
-                  <View style={styles.rideCardTimeBadge}>
-                    <Text style={styles.rideCardTimeText}>Departs {driver.departureTime}</Text>
-                  </View>
-
-                  <TouchableOpacity
-                    style={[
-                      styles.rideCardButton,
-                      reserveDisabled && styles.rideCardButtonDisabled,
-                    ]}
-                    onPress={() => handleStartReserve(driver.id)}
-                    disabled={reserveDisabled}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[
-                        styles.rideCardButtonText,
-                        reserveDisabled && styles.rideCardButtonTextDisabled,
-                      ]}
-                    >
-                      {reserveLabel}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
-              );
-            })}
+
+                <Text style={styles.rideCardName}>{driver.name}</Text>
+
+                <View style={styles.rideCardRouteRow}>
+                  <Text style={styles.rideCardRouteIcon}>→</Text>
+                  <Text style={styles.rideCardDestination} numberOfLines={1}>
+                    {driver.destination}
+                  </Text>
+                </View>
+
+                <View style={styles.rideCardTimeBadge}>
+                  <Text style={styles.rideCardTimeText}>Departs {driver.departureTime}</Text>
+                </View>
+
+                <View style={styles.rideCardButton}>
+                  <Text style={styles.rideCardButtonText}>View Details</Text>
+                </View>
+              </TouchableOpacity>
+            ))}
           </ScrollView>
-        )}
-
-        {/* Reservation panel: choose which waiting rider fills the open seat */}
-        {reservingDriver !== null && (
-          <View style={styles.reservationPanel}>
-            <Text style={styles.reservationTitle}>
-              Match a rider to {reservingDriver.name}&apos;s ride
-            </Text>
-            <Text style={styles.reservationSubtitle}>
-              Tap a waiting rider to confirm the match.
-            </Text>
-
-            {riders.length === 0 ? (
-              <Text style={styles.emptyMessage}>No riders waiting.</Text>
-            ) : (
-              riders.map((rider) => (
-                <TouchableOpacity
-                  key={rider.id}
-                  style={styles.riderPickRow}
-                  onPress={() => handleMatchRider(reservingDriver.id, rider.id)}
-                  activeOpacity={0.75}
-                >
-                  <View style={[styles.avatar, styles.riderAvatar, styles.riderPickAvatar]}>
-                    <Text style={styles.avatarText}>{getInitial(rider.name)}</Text>
-                  </View>
-                  <Text style={styles.riderPickName}>{rider.name}</Text>
-                  <Text style={styles.riderPickArrow}>›</Text>
-                </TouchableOpacity>
-              ))
-            )}
-
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={handleCancelReserve}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-          </View>
         )}
 
         {/* Looking for a Ride section (riders) */}
@@ -714,6 +780,61 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
 
+  // Ride Details screen
+  detailsWrap: {
+    flex: 1,
+    paddingTop: 4,
+  },
+  detailsCard: {
+    backgroundColor: '#fff',
+    borderRadius: 22,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#EEF1F6',
+    shadowColor: '#16213E',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 2,
+  },
+  detailsBackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    marginBottom: 16,
+  },
+  detailsBackArrow: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#3B6EF5',
+    marginRight: 2,
+  },
+  detailsBackText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3B6EF5',
+  },
+  detailsHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 18,
+  },
+  detailsHeaderText: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  detailsDriverName: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#16213E',
+  },
+  detailsHeaderHint: {
+    fontSize: 12.5,
+    fontWeight: '500',
+    color: '#8A93A3',
+    marginTop: 2,
+  },
+
   // Section headers (shared by Available Rides / Looking for a Ride / forms)
   sectionHeaderRow: {
     flexDirection: 'row',
@@ -771,10 +892,6 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
-  },
-  rideCardActive: {
-    borderColor: '#3B6EF5',
-    borderWidth: 1.5,
   },
   rideCardTop: {
     flexDirection: 'row',
