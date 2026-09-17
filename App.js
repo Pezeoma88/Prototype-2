@@ -15,7 +15,9 @@ import {
 // and a waiting rider can be matched to a driver's open seat.
 export default function App() {
   // The list of drivers that have been added so far.
-  // Each driver is an object like { id, name, destination, departureTime, seats }.
+  // Each driver is an object like
+  // { id, name, destination, departureTime, seats, matchedRiders }.
+  // matchedRiders collects { id, name } for every rider matched to this ride so far.
   const [drivers, setDrivers] = useState([]);
 
   // Whether the "Add Driver" form is currently showing.
@@ -101,6 +103,7 @@ export default function App() {
       destination: trimmedDestination,
       departureTime: trimmedDepartureTime,
       seats: seatsNumber,
+      matchedRiders: [],
     };
     setDrivers([...drivers, newDriver]);
 
@@ -114,6 +117,15 @@ export default function App() {
 
   // Closes the Ride Details screen (and any in-progress matching) and returns to Available Rides.
   function handleBackToAvailableRides() {
+    setSelectedRideDriverId(null);
+    setReservingDriverId(null);
+  }
+
+  // Cancels an offered ride: removes it from Available Rides and clears any
+  // Ride Details / Rider Matching state pointing at it. Other drivers and
+  // riders are untouched.
+  function handleCancelRide(driverId) {
+    setDrivers(drivers.filter((driver) => driver.id !== driverId));
     setSelectedRideDriverId(null);
     setReservingDriverId(null);
   }
@@ -140,7 +152,13 @@ export default function App() {
     setDrivers(
       drivers.map((driver) =>
         driver.id === driverId
-          ? { ...driver, seats: Math.max(0, driver.seats - 1) }
+          ? {
+              ...driver,
+              seats: Math.max(0, driver.seats - 1),
+              matchedRiders: matchedRider
+                ? [...driver.matchedRiders, { id: matchedRider.id, name: matchedRider.name }]
+                : driver.matchedRiders,
+            }
           : driver
       )
     );
@@ -328,6 +346,26 @@ export default function App() {
                 </View>
               </View>
 
+              <View style={styles.sectionHeaderRow}>
+                <View style={[styles.sectionAccent, styles.sectionAccentDriver]} />
+                <Text style={styles.sectionTitle}>Riders in this ride</Text>
+              </View>
+
+              {detailsDriver.matchedRiders.length === 0 ? (
+                <Text style={styles.detailsMatchedEmpty}>No riders matched yet.</Text>
+              ) : (
+                <View style={styles.riderChipRow}>
+                  {detailsDriver.matchedRiders.map((rider) => (
+                    <View key={rider.id} style={styles.riderChip}>
+                      <View style={[styles.avatar, styles.riderChipAvatar]}>
+                        <Text style={styles.avatarText}>{getInitial(rider.name)}</Text>
+                      </View>
+                      <Text style={styles.riderChipName}>{rider.name}</Text>
+                    </View>
+                  ))}
+                </View>
+              )}
+
               {reservingDriverId === detailsDriver.id ? (
                 /* Rider Matching: choose which waiting rider fills the open seat */
                 <View style={styles.reservationPanel}>
@@ -397,6 +435,14 @@ export default function App() {
                   );
                 })()
               )}
+
+              <TouchableOpacity
+                style={styles.cancelRideButton}
+                onPress={() => handleCancelRide(detailsDriver.id)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.cancelRideButtonText}>Cancel Ride</Text>
+              </TouchableOpacity>
             </View>
           </View>
         ) : (
@@ -833,6 +879,23 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     color: '#8A93A3',
     marginTop: 2,
+  },
+  detailsMatchedEmpty: {
+    fontSize: 14,
+    color: '#8A93A3',
+    marginBottom: 18,
+  },
+  cancelRideButton: {
+    backgroundColor: '#FDECEC',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  cancelRideButtonText: {
+    color: '#D64545',
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   // Section headers (shared by Available Rides / Looking for a Ride / forms)
